@@ -1,15 +1,372 @@
 <!DOCTYPE html>
 <html>
-  <head>
-    <title>My Extension</title>
-    <script src="popup.js"></script>
-  </head>
-  <body>
-    <label for="value1">Value 1:</label>
-    <input type="number" id="value1"><br>
-    <label for="value2">Value 2:</label>
-    <input type="number" id="value2"><br>
-    <button id="calculateButton">Calculate</button><br>
-    <div id="result"></div>
-  </body>
+<head>
+  <title>Calculator TFF</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      margin: 0;
+      padding: 0;
+    }
+
+    h1 {
+      margin: 20px 0;
+      text-align: center;
+    }
+
+    label {
+      display: block;
+      margin: 10px 0px 0px 0px;
+      font-weight: bold;
+    }
+
+    label.radiolabel {
+      margin: 0px 0px 10px 0px;
+    }
+
+    input[type="number"],
+    input[type="text"],
+    select {
+      padding: 8px;
+      border-radius: 4px;
+      border: 1px solid #ccc;
+      width: 100%;
+      box-sizing: border-box;
+      margin-bottom: 10px;
+    }
+
+    input[type="radio"] {
+      display: none;
+    }
+
+    input[type="radio"] + label {
+      display: inline-block;
+      padding: 10px;
+      border-radius: 4px;
+      border: 1px solid #ccc;
+      cursor: pointer;
+    }
+
+    input[type="radio"]:checked + label {
+      background-color: #007bff;
+      color: #fff;
+      border-color: #007bff;
+    }
+
+    input[type="checkbox"] + label {
+      display: inline-block;
+      margin-left: 10px;
+      cursor: pointer;
+    }
+
+    #comission-amount {
+      display: block;
+    }
+
+    .result {
+      margin-top: 20px;
+      padding: 10px;
+      border-radius: 4px;
+      border: 1px solid #ccc;
+    }
+
+    .result label {
+      font-weight: normal;
+    }
+
+    .result p {
+      margin: 5px 0;
+    }
+
+    body {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+    }
+
+    .container {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      border: 1px solid black;
+      padding: 1em;
+      width: 50%;
+    }
+
+    .column {
+      padding: 0 1em;
+    }
+
+    .left-column {
+      flex: 0 0 60%;
+    }
+
+    .right-column {
+      flex: 0 0 30%;
+      border-left: 1px solid black;
+    }
+
+    #result-position-size {
+      font-weight: bold;
+    }
+
+    .settings-container {
+      position: fixed;
+      bottom: 0;
+      width: inherit;
+      background-color: #FDFDFD;
+      border: 1px solid #ccc;
+    }
+
+    .settings-toggle {
+      display: block;
+      margin: 0 auto;
+      background: none;
+      border: none;
+      outline: none;
+      font-size: 1.2em;
+      cursor: pointer;
+    }
+
+    .settings-content {
+      display: none;
+      padding: 1em;
+    }
+
+    .settings-content.show {
+      display: block;
+    }
+
+    .small-text {
+      font-size: 0.8em;
+      color: grey;
+      margin: -7px 0px 10px 1px;
+      display: block;
+    }
+
+
+  </style>
+</head>
+<body>
+<div class="container">
+  <div class="column left-column">
+    <h1>Calculator TFF</h1>
+    <label>Base account size:</label>
+    <div>
+      <input type="radio" name="base-account" id="25k" value="25000" checked>
+      <label class="radiolabel" for="25k">$25,000</label>
+
+      <input type="radio" name="base-account" id="50k" value="50000">
+      <label class="radiolabel" for="50k">$50,000</label>
+
+      <input type="radio" name="base-account" id="100k" value="100000">
+      <label class="radiolabel" for="100k">$100,000</label>
+
+      <input type="radio" name="base-account" id="200k" value="200000">
+      <label class="radiolabel" for="200k">$200,000</label>
+    </div>
+
+    <label for="current-account">Current account state:</label>
+    <input type="number" id="current-account" min="0" required value="25000">
+    <span class="small-text" id="current-account-percentage">Percentage of base account: 100%</span>
+
+    <div class="form-group">
+      <label for="risk">Risk per trade:</label>
+      <input class="form-check-input" type="radio" name="risk" id="risk1" value="0.005">
+      <label class="radiolabel form-check-label" for="risk1">
+        0.5%
+      </label>
+      <input class="form-check-input" type="radio" name="risk" id="risk2" value="0.01" checked>
+      <label class="radiolabel form-check-label" for="risk2">
+        1%
+      </label>
+    </div>
+    <span class="small-text" id="risk-info">Switched to 0.5% since it's less than 95%</span>
+
+    <label for="stop-loss">Stop-loss ticks</label>
+    <input type="number" id="stop-loss" min="0" required>
+
+    <label for="take">Take ticks</label>
+    <input type="number" id="take" min="0">
+  </div>
+  <div class="column right-column">
+    <div class="result" id="result">
+      <p><span id="result-position-size">Position size: </span></p>
+      <hr/>
+      <p><span id="result-total-risk">Total risk:</span></p>
+      <p><span id="result-risk">Real risk:</span></p>
+      <p><span id="result-comission">Comission:</span></p>
+      <hr/>
+      <p><span id="result-total-profit">Total profit:</span></p>
+      <p><span id="result-profit">Real profit:</span></p>
+      <hr/>
+      <p><span id="result-rr">Real RR:</span></p>
+    </div>
+  </div>
+
+  <div class="settings-container" id="settings-container">
+    <button class="settings-toggle">Settings &#9660;</button>
+    <div class="settings-content">
+
+      <input type="checkbox" id="comission-checkbox" checked>
+      <label for="comission-checkbox">Comission ($)</label>
+      <div id="comission-amount">
+        <input type="number" id="comission" min="0" value="7.00">
+      </div>
+
+      <label for="target-rr">Minimal acceptable RR</label>
+      <input type="number" id="target-rr" min="0" value="2.5" step="0.1">
+
+      <label for="target-rr">Minimal acceptable RR</label>
+      <input type="number" id="target-rr" min="0" value="2.5" step="0.1">
+    </div>
+  </div>
+</div>
+<script>
+  const baseAccounts = document.querySelectorAll('input[name="base-account"]');
+  const currentAccountInput = document.querySelector('#current-account');
+  const currentAccountPercentage = document.querySelector('#current-account-percentage');
+  const riskInput = document.querySelectorAll('input[name="risk"]');
+  const stopLossInput = document.querySelector('#stop-loss');
+  const takeInput = document.querySelector('#take');
+  const comissionCheckbox = document.querySelector('#comission-checkbox');
+  const comissionAmount = document.querySelector('#comission-amount');
+  const comissionInput = document.querySelector('#comission');
+  const resultPositionSize = document.querySelector('#result-position-size');
+  const resultTotalRisk = document.querySelector('#result-total-risk');
+  const resultRisk = document.querySelector('#result-risk');
+  const resultComission = document.querySelector('#result-comission');
+  const resultTotalProfit = document.querySelector('#result-total-profit');
+  const resultProfit = document.querySelector('#result-profit');
+  const resultRR = document.querySelector('#result-rr');
+  const targetRR = document.querySelector('#target-rr');
+
+  function updateRisk() {
+    const currentAccountValue = parseInt(currentAccountInput.value);
+    const stopLossValue = parseInt(stopLossInput.value);
+    const selectedBase = parseFloat(document.querySelector('input[name="base-account"]:checked').value);
+
+    const currentPercentage = 100 * (currentAccountValue / selectedBase);
+
+    if (currentPercentage) {
+      const currentPercentageFormatted = currentPercentage.toLocaleString('en-US',
+          {minimumFractionDigits: 0, maximumFractionDigits: 2});
+      currentAccountPercentage.textContent = `Percentage of base account: ${currentPercentageFormatted}%`;
+      if (currentPercentage <= 95) {
+        document.getElementById('risk1').checked = true;
+        document.getElementById('risk2').checked = false;
+      } else {
+        document.getElementById('risk1').checked = false;
+        document.getElementById('risk2').checked = true;
+      }
+    }
+  }
+
+  function updatePositionSize() {
+    const currentAccountValue = parseInt(currentAccountInput.value);
+    const stopLossValue = parseInt(stopLossInput.value);
+    const takeValue = parseInt(takeInput.value);
+    const selectedRisk = parseFloat(document.querySelector('input[name="risk"]:checked').value);
+    const comissionValue = parseFloat(comissionInput.value);
+
+    console.log('current account value:', currentAccountValue);
+    console.log('stop loss value:', stopLossValue);
+    console.log('selected risk:', selectedRisk);
+    if (currentAccountValue && stopLossValue) {
+      const risk = currentAccountValue * selectedRisk;
+      const riskFormatted = risk.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+      const positionSize = risk / (comissionValue + stopLossValue);
+      const positionSizeFormatted = positionSize.toLocaleString('en-US',
+          {minimumFractionDigits: 2, maximumFractionDigits: 2});
+      const comissionSize = parseFloat(positionSizeFormatted) * comissionValue;
+      const comissionSizeFormatted = comissionSize.toLocaleString('en-US',
+          {minimumFractionDigits: 2, maximumFractionDigits: 2});
+      const realRisk = risk - comissionSize;
+      const realRiskFormatted = realRisk.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+
+      resultPositionSize.textContent = `Position size: ${positionSizeFormatted} lots`;
+      resultTotalRisk.textContent = `Total risk: $${riskFormatted}`;
+      resultRisk.textContent = `Real risk: $${realRiskFormatted}`;
+      resultComission.textContent = `Comission: $${comissionSizeFormatted}`;
+      if (takeValue) {
+        const profit = parseFloat(positionSizeFormatted) * takeValue;
+        const profitFormatted = profit.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+        const realProfit = profit - comissionSize;
+        const realProfitFormatted = realProfit.toLocaleString('en-US',
+            {minimumFractionDigits: 2, maximumFractionDigits: 2});
+        const realRr = realProfit / risk;
+        const realRrFormatted = realRr.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+
+        resultTotalProfit.textContent = `Total profit: $${profitFormatted}`;
+        resultProfit.textContent = `Real profit: $${realProfitFormatted}`;
+        resultRR.textContent = `Real RR: ${realRrFormatted}`;
+        resultRR.style.color = realRr < parseFloat(targetRR.value) ? 'red' : 'green';
+      }
+    }
+  }
+
+  baseAccounts.forEach(baseAccount => {
+    baseAccount.addEventListener('change', () => {
+      baseAccountValue = parseInt(baseAccount.value);
+      updateRisk();
+      updatePositionSize();
+    });
+  });
+
+  currentAccountInput.addEventListener('input', () => {
+    updateRisk();
+    updatePositionSize();
+  });
+
+  stopLossInput.addEventListener('input', () => {
+    updatePositionSize();
+  });
+
+  takeInput.addEventListener('input', () => {
+    updatePositionSize();
+  });
+
+  comissionCheckbox.addEventListener('change', () => {
+    comissionAmount.style.display = comissionCheckbox.checked ? 'block' : 'none';
+    resultComission.style.display = comissionCheckbox.checked ? 'block' : 'none';
+    comissionValue = comissionCheckbox.checked ? parseInt(comissionInput.value) : 0;
+    updatePositionSize();
+  });
+
+  comissionInput.addEventListener('input', () => {
+    updatePositionSize();
+  });
+
+  targetRR.addEventListener('input', () => {
+    updatePositionSize();
+  });
+
+  riskInput.forEach(baseAccount => {
+    baseAccount.addEventListener('change', () => {
+      const selectedRisk = parseFloat(document.querySelector('input[name="risk"]:checked').value);
+      console.log("ALERT");
+      updatePositionSize();
+    });
+  });
+
+  const settingsToggle = document.querySelector('.settings-toggle');
+  const settingsContent = document.querySelector('.settings-content');
+  const settingsContainer = document.querySelector('.settings-container');
+
+  settingsToggle.addEventListener('click', function () {
+    settingsContent.classList.toggle('show');
+    settingsToggle.innerHTML = settingsContent.classList.contains('show') ? 'Settings &#9650;' : 'Settings &#9660;';
+  });
+
+  // Add event listener for click on the document object
+  document.addEventListener("click", (event) => {
+    // Check if the clicked element is outside the settings container
+    if (!settingsContainer.contains(event.target)) {
+      // Hide the settings container
+      settingsContent.classList.remove("show");
+    }
+  });
+</script>
+</body>
 </html>
