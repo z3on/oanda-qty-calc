@@ -59,7 +59,7 @@
       cursor: pointer;
     }
 
-    #comission-amount {
+    #fee-amount {
       display: block;
     }
 
@@ -99,11 +99,11 @@
     }
 
     .left-column {
-      flex: 0 0 60%;
+      flex: 0 0 50%;
     }
 
     .right-column {
-      flex: 0 0 30%;
+      flex: 0 0 40%;
       border-left: 1px solid black;
     }
 
@@ -171,7 +171,7 @@
     <input type="number" id="current-account" min="0" required value="25000">
     <span class="small-text" id="current-account-percentage">Percentage of base account: 100%</span>
 
-    <div class="form-group">
+    <div id="risk-options">
       <label for="risk">Risk per trade:</label>
       <input class="form-check-input" type="radio" name="risk" id="risk1" value="0.005">
       <label class="radiolabel form-check-label" for="risk1">
@@ -179,10 +179,15 @@
       </label>
       <input class="form-check-input" type="radio" name="risk" id="risk2" value="0.01" checked>
       <label class="radiolabel form-check-label" for="risk2">
-        1%
+        1.0%
       </label>
+      <span class="small-text" id="risk-info"></span>
     </div>
-    <span class="small-text" id="risk-info">Switched to 0.5% since it's less than 95%</span>
+
+    <div id="risk-custom" style='display: none;'>
+      <label for="risk-custom-input">Risk per trade (%):</label>
+      <input type="number" id="risk-custom-input" min="0" required value="1.0" step="0.1">
+    </div>
 
     <label for="stop-loss">Stop-loss ticks</label>
     <input type="number" id="stop-loss" min="0" required>
@@ -196,11 +201,13 @@
       <hr/>
       <p><span id="result-total-risk">Total risk:</span></p>
       <p><span id="result-risk">Real risk:</span></p>
-      <p><span id="result-comission">Comission:</span></p>
+      <p><span id="result-fee">Fee:</span></p>
       <hr/>
       <p><span id="result-total-profit">Total profit:</span></p>
       <p><span id="result-profit">Real profit:</span></p>
       <hr/>
+      <p><span id="result-rr-no-fee">No-fee RR:</span></p>
+      <p><span id="result-rr-fee-reduction">RR reduction by comission:</span></p>
       <p><span id="result-rr">Real RR:</span></p>
     </div>
   </div>
@@ -208,18 +215,21 @@
   <div class="settings-container" id="settings-container">
     <button class="settings-toggle">Settings &#9660;</button>
     <div class="settings-content">
+      <input type="checkbox" id="custom-risk-checkbox">
+      <label for="custom-risk-checkbox">Use custom risk value</label>
+      <br/>
 
-      <input type="checkbox" id="comission-checkbox" checked>
-      <label for="comission-checkbox">Comission ($)</label>
-      <div id="comission-amount">
-        <input type="number" id="comission" min="0" value="7.00">
+      <input type="checkbox" id="fee-checkbox" checked>
+      <label for="fee-checkbox">Fee ($)</label>
+      <div id="fee-amount">
+        <input type="number" id="fee" min="0" value="7.00">
       </div>
 
       <label for="target-rr">Minimal acceptable RR</label>
       <input type="number" id="target-rr" min="0" value="2.5" step="0.1">
 
-      <label for="target-rr">Minimal acceptable RR</label>
-      <input type="number" id="target-rr" min="0" value="2.5" step="0.1">
+      <label for="target-rr">Account balance threshold for auto-switch to 0.5% risk (%)</label>
+      <input type="number" id="autoswitch-threshold" min="0" value="93" step="1">
     </div>
   </div>
 </div>
@@ -227,39 +237,50 @@
   const baseAccounts = document.querySelectorAll('input[name="base-account"]');
   const currentAccountInput = document.querySelector('#current-account');
   const currentAccountPercentage = document.querySelector('#current-account-percentage');
-  const riskInput = document.querySelectorAll('input[name="risk"]');
+  const riskInputs = document.querySelectorAll('input[name="risk"]');
+  const riskInfo = document.querySelector('#risk-info');
+  const riskOptions = document.querySelector('#risk-options');
+  const riskCustomInput = document.querySelector('#risk-custom-input');
+  const riskCustom = document.querySelector('#risk-custom');
   const stopLossInput = document.querySelector('#stop-loss');
   const takeInput = document.querySelector('#take');
-  const comissionCheckbox = document.querySelector('#comission-checkbox');
-  const comissionAmount = document.querySelector('#comission-amount');
-  const comissionInput = document.querySelector('#comission');
+  const customRiskCheckbox = document.querySelector('#custom-risk-checkbox');
+  const feeCheckbox = document.querySelector('#fee-checkbox');
+  const feeAmount = document.querySelector('#fee-amount');
+  const feeInput = document.querySelector('#fee');
   const resultPositionSize = document.querySelector('#result-position-size');
   const resultTotalRisk = document.querySelector('#result-total-risk');
   const resultRisk = document.querySelector('#result-risk');
-  const resultComission = document.querySelector('#result-comission');
+  const resultFee = document.querySelector('#result-fee');
   const resultTotalProfit = document.querySelector('#result-total-profit');
   const resultProfit = document.querySelector('#result-profit');
   const resultRR = document.querySelector('#result-rr');
+  const resultRrNoFee = document.querySelector('#result-rr-no-fee');
+  const resultRrFeeReduction = document.querySelector('#result-rr-fee-reduction');
   const targetRR = document.querySelector('#target-rr');
+  const autoswitchThreshold = document.querySelector('#autoswitch-threshold');
 
   function updateRisk() {
-    const currentAccountValue = parseInt(currentAccountInput.value);
-    const stopLossValue = parseInt(stopLossInput.value);
+    const currentAccountValue = parseFloat(currentAccountInput.value);
+    const stopLossValue = parseFloat(stopLossInput.value);
     const selectedBase = parseFloat(document.querySelector('input[name="base-account"]:checked').value);
+    const autoswitchThresholdValue = parseFloat(autoswitchThreshold.value);
 
     const currentPercentage = 100 * (currentAccountValue / selectedBase);
 
     if (currentPercentage) {
-      const currentPercentageFormatted = currentPercentage.toLocaleString('en-US',
-          {minimumFractionDigits: 0, maximumFractionDigits: 2});
+      const currentPercentageFormatted = currentPercentage.toLocaleString('en-US',{minimumFractionDigits: 0, maximumFractionDigits: 2});
       currentAccountPercentage.textContent = `Percentage of base account: ${currentPercentageFormatted}%`;
-      if (currentPercentage <= 95) {
+      if (currentPercentage <= autoswitchThresholdValue) {
         document.getElementById('risk1').checked = true;
         document.getElementById('risk2').checked = false;
+        riskInfo.textContent = `Switched to 0.5% since current balance is less than ${autoswitchThresholdValue}%`;
       } else {
         document.getElementById('risk1').checked = false;
         document.getElementById('risk2').checked = true;
+        riskInfo.textContent = `Switched to 1.0% since current balance is more than ${autoswitchThresholdValue}%`;
       }
+      riskInfo.style.display = 'block';
     }
   }
 
@@ -267,41 +288,69 @@
     const currentAccountValue = parseInt(currentAccountInput.value);
     const stopLossValue = parseInt(stopLossInput.value);
     const takeValue = parseInt(takeInput.value);
-    const selectedRisk = parseFloat(document.querySelector('input[name="risk"]:checked').value);
-    const comissionValue = parseFloat(comissionInput.value);
+    const selectedRiskOption = parseFloat(document.querySelector('input[name="risk"]:checked').value);
+    const selectedRiskCustom = parseFloat(riskCustomInput.value) / 100;
+    const selectedRisk = customRiskCheckbox.checked ? selectedRiskCustom : selectedRiskOption;
+    const feeValue = feeCheckbox.checked ? parseFloat(feeInput.value) : 0;
 
-    console.log('current account value:', currentAccountValue);
-    console.log('stop loss value:', stopLossValue);
-    console.log('selected risk:', selectedRisk);
+    feeAmount.style.display = feeCheckbox.checked ? 'block' : 'none';
+    resultFee.style.display = feeCheckbox.checked ? 'block' : 'none';
+    resultRR.style.display = feeCheckbox.checked ? 'block' : 'none';
+    resultRrFeeReduction.style.display = feeCheckbox.checked ? 'block' : 'none';
+    riskOptions.style.display = customRiskCheckbox.checked ? 'none' : 'block';
+    riskCustom.style.display = customRiskCheckbox.checked ? 'block' : 'none';
+
+    resultPositionSize.textContent = `Position size: `;
+    resultTotalRisk.textContent = `Total risk: `;
+    resultRisk.textContent = `Real risk: `;
+    resultFee.textContent = `Fee: `;
+    resultTotalProfit.textContent = `Total profit: `;
+    resultProfit.textContent = `Real profit: `;
+    resultRrNoFee.textContent = `No-fee RR: `;
+    resultRrNoFee.style.color = 'black';
+    resultRrFeeReduction.textContent = `RR reduction by comission: `;
+    resultRR.textContent = `Real RR: `;
+    resultRR.style.color = 'black';
+
     if (currentAccountValue && stopLossValue) {
       const risk = currentAccountValue * selectedRisk;
       const riskFormatted = risk.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2});
-      const positionSize = risk / (comissionValue + stopLossValue);
+      const positionSize = risk / (feeValue + stopLossValue);
       const positionSizeFormatted = positionSize.toLocaleString('en-US',
           {minimumFractionDigits: 2, maximumFractionDigits: 2});
-      const comissionSize = parseFloat(positionSizeFormatted) * comissionValue;
-      const comissionSizeFormatted = comissionSize.toLocaleString('en-US',
-          {minimumFractionDigits: 2, maximumFractionDigits: 2});
-      const realRisk = risk - comissionSize;
+      const feeSize = parseFloat(positionSizeFormatted) * feeValue;
+      const feeSizeFormatted = feeSize.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+      const realRisk = risk - feeSize;
       const realRiskFormatted = realRisk.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2});
 
-      resultPositionSize.textContent = `Position size: ${positionSizeFormatted} lots`;
-      resultTotalRisk.textContent = `Total risk: $${riskFormatted}`;
-      resultRisk.textContent = `Real risk: $${realRiskFormatted}`;
-      resultComission.textContent = `Comission: $${comissionSizeFormatted}`;
+      resultPositionSize.textContent += `${positionSizeFormatted} lots`;
+      resultTotalRisk.textContent += `$${riskFormatted}`;
+      resultRisk.textContent += `$${realRiskFormatted}`;
+      resultFee.textContent += `$${feeSizeFormatted}`;
       if (takeValue) {
         const profit = parseFloat(positionSizeFormatted) * takeValue;
         const profitFormatted = profit.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2});
-        const realProfit = profit - comissionSize;
+        const realProfit = profit - feeSize;
         const realProfitFormatted = realProfit.toLocaleString('en-US',
             {minimumFractionDigits: 2, maximumFractionDigits: 2});
+        const noFeeRr = takeValue / stopLossValue;
+        const noFeeRrFormatted = noFeeRr.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2});
         const realRr = realProfit / risk;
         const realRrFormatted = realRr.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+        const rrFeeReduction = (1 - realRr / noFeeRr) * 100;
+        const rrFeeReductionFormatted = rrFeeReduction.toLocaleString('en-US',
+            {minimumFractionDigits: 0, maximumFractionDigits: 1});
 
-        resultTotalProfit.textContent = `Total profit: $${profitFormatted}`;
-        resultProfit.textContent = `Real profit: $${realProfitFormatted}`;
-        resultRR.textContent = `Real RR: ${realRrFormatted}`;
-        resultRR.style.color = realRr < parseFloat(targetRR.value) ? 'red' : 'green';
+        resultTotalProfit.textContent += `$${profitFormatted}`;
+        resultProfit.textContent += `$${realProfitFormatted}`;
+        resultRrNoFee.textContent += `${noFeeRrFormatted}`;
+        resultRrFeeReduction.textContent += `-${rrFeeReductionFormatted}%`;
+        resultRR.textContent += `${realRrFormatted}`;
+        if (feeCheckbox.checked) {
+          resultRR.style.color = realRr < parseFloat(targetRR.value) ? 'red' : 'green';
+        } else {
+          resultRrNoFee.style.color = noFeeRr < parseFloat(targetRR.value) ? 'red' : 'green';
+        }
       }
     }
   }
@@ -327,14 +376,11 @@
     updatePositionSize();
   });
 
-  comissionCheckbox.addEventListener('change', () => {
-    comissionAmount.style.display = comissionCheckbox.checked ? 'block' : 'none';
-    resultComission.style.display = comissionCheckbox.checked ? 'block' : 'none';
-    comissionValue = comissionCheckbox.checked ? parseInt(comissionInput.value) : 0;
+  feeCheckbox.addEventListener('change', () => {
     updatePositionSize();
   });
 
-  comissionInput.addEventListener('input', () => {
+  feeInput.addEventListener('input', () => {
     updatePositionSize();
   });
 
@@ -342,12 +388,19 @@
     updatePositionSize();
   });
 
-  riskInput.forEach(baseAccount => {
-    baseAccount.addEventListener('change', () => {
-      const selectedRisk = parseFloat(document.querySelector('input[name="risk"]:checked').value);
-      console.log("ALERT");
+  riskInputs.forEach(riskOption => {
+    riskOption.addEventListener('change', () => {
+      riskInfo.style.display = 'none';
       updatePositionSize();
     });
+  });
+
+  riskCustomInput.addEventListener('change', () => {
+    updatePositionSize();
+  });
+
+  customRiskCheckbox.addEventListener('change', () => {
+    updatePositionSize();
   });
 
   const settingsToggle = document.querySelector('.settings-toggle');
