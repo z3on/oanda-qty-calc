@@ -2,6 +2,7 @@
 <html>
 <head>
   <title>Calculator TFF</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <style>
     body {
       font-family: Arial, sans-serif;
@@ -21,7 +22,7 @@
     }
 
     label.radiolabel {
-      margin: 0px 0px 10px 0px;
+      margin: 0px -5px 10px 0px;
     }
 
     input[type="number"],
@@ -42,7 +43,6 @@
     input[type="radio"] + label {
       display: inline-block;
       padding: 10px;
-      border-radius: 4px;
       border: 1px solid #ccc;
       cursor: pointer;
     }
@@ -91,7 +91,13 @@
       align-items: center;
       border: 1px solid black;
       padding: 1em;
-      width: 50%;
+      width: 80%;
+      min-width: 650px;
+      max-width: 750px;
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
     }
 
     .column {
@@ -114,7 +120,6 @@
     .settings-container {
       position: fixed;
       bottom: 0;
-      width: inherit;
       background-color: #FDFDFD;
       border: 1px solid #ccc;
     }
@@ -145,6 +150,37 @@
       display: block;
     }
 
+    @media only screen and (max-width: 600px) {
+      .container {
+        position: relative;
+        top: auto;
+        left: auto;
+        transform: none;
+        width: 100% !important;
+        min-width: 300px;
+      }
+
+      body {
+        font-size: 10px;
+      }
+
+      input[type="radio"] + label {
+        padding: 5px;
+      }
+
+      label.radiolabel {
+        margin: 0px -3px 10px 0px;
+      }
+
+      input[type="number"],
+      input[type="text"],
+      select {
+        font-size: 10px;
+      }
+    }
+
+
+
 
   </style>
 </head>
@@ -155,16 +191,16 @@
     <label>Base account size:</label>
     <div>
       <input type="radio" name="base-account" id="25k" value="25000" checked>
-      <label class="radiolabel" for="25k">$25,000</label>
+      <label class="radiolabel" for="25k">$25K</label>
 
       <input type="radio" name="base-account" id="50k" value="50000">
-      <label class="radiolabel" for="50k">$50,000</label>
+      <label class="radiolabel" for="50k">$50K</label>
 
       <input type="radio" name="base-account" id="100k" value="100000">
-      <label class="radiolabel" for="100k">$100,000</label>
+      <label class="radiolabel" for="100k">$100K</label>
 
       <input type="radio" name="base-account" id="200k" value="200000">
-      <label class="radiolabel" for="200k">$200,000</label>
+      <label class="radiolabel" for="200k">$200K</label>
     </div>
 
     <label for="current-account">Current account state:</label>
@@ -181,7 +217,7 @@
       <label class="radiolabel form-check-label" for="risk2">
         1.0%
       </label>
-      <span class="small-text" id="risk-info"></span>
+      <span class="small-text" id="risk-info" style="visibility: hidden;">Switched to 0.5% since current balance is less than 93%</span>
     </div>
 
     <div id="risk-custom" style='display: none;'>
@@ -194,6 +230,8 @@
 
     <label for="take">Take ticks</label>
     <input type="number" id="take" min="0">
+    <br />
+    .
   </div>
   <div class="column right-column">
     <div class="result" id="result">
@@ -207,17 +245,14 @@
       <p><span id="result-profit">Real profit:</span></p>
       <hr/>
       <p><span id="result-rr-no-fee">No-fee RR:</span></p>
-      <p><span id="result-rr-fee-reduction">RR reduction by comission:</span></p>
+      <p><span id="result-rr-fee-reduction">RR fee-reduction:</span></p>
       <p><span id="result-rr">Real RR:</span></p>
     </div>
   </div>
 
   <div class="settings-container" id="settings-container">
-    <button class="settings-toggle">Settings &#9660;</button>
+    <button class="settings-toggle">Settings &#9650;</button>
     <div class="settings-content">
-      <input type="checkbox" id="custom-risk-checkbox">
-      <label for="custom-risk-checkbox">Use custom risk value</label>
-      <br/>
 
       <input type="checkbox" id="fee-checkbox" checked>
       <label for="fee-checkbox">Fee ($)</label>
@@ -228,8 +263,14 @@
       <label for="target-rr">Minimal acceptable RR</label>
       <input type="number" id="target-rr" min="0" value="2.5" step="0.1">
 
-      <label for="target-rr">Account balance threshold for auto-switch to 0.5% risk (%)</label>
-      <input type="number" id="autoswitch-threshold" min="0" value="93" step="1">
+      <input type="checkbox" id="custom-risk-checkbox">
+      <label for="custom-risk-checkbox">Use custom risk value</label>
+      <br/>
+
+      <div id="risk-auto-switch-setting">
+        <label for="target-rr">Account balance threshold for auto-switch to 0.5% risk (%)</label>
+        <input type="number" id="autoswitch-threshold" min="0" value="93" step="1">
+      </div>
     </div>
   </div>
 </div>
@@ -259,6 +300,7 @@
   const resultRrFeeReduction = document.querySelector('#result-rr-fee-reduction');
   const targetRR = document.querySelector('#target-rr');
   const autoswitchThreshold = document.querySelector('#autoswitch-threshold');
+  const autoswitchSetting = document.querySelector('#risk-auto-switch-setting');
 
   function updateRisk() {
     const currentAccountValue = parseFloat(currentAccountInput.value);
@@ -280,7 +322,7 @@
         document.getElementById('risk2').checked = true;
         riskInfo.textContent = `Switched to 1.0% since current balance is more than ${autoswitchThresholdValue}%`;
       }
-      riskInfo.style.display = 'block';
+      riskInfo.style.visibility = 'visible';
     }
   }
 
@@ -299,6 +341,7 @@
     resultRrFeeReduction.style.display = feeCheckbox.checked ? 'block' : 'none';
     riskOptions.style.display = customRiskCheckbox.checked ? 'none' : 'block';
     riskCustom.style.display = customRiskCheckbox.checked ? 'block' : 'none';
+    autoswitchSetting.style.visibility = customRiskCheckbox.checked ? 'hidden' : 'visible';
 
     resultPositionSize.textContent = `Position size: `;
     resultTotalRisk.textContent = `Total risk: `;
@@ -308,7 +351,7 @@
     resultProfit.textContent = `Real profit: `;
     resultRrNoFee.textContent = `No-fee RR: `;
     resultRrNoFee.style.color = 'black';
-    resultRrFeeReduction.textContent = `RR reduction by comission: `;
+    resultRrFeeReduction.textContent = `RR fee-reduction: `;
     resultRR.textContent = `Real RR: `;
     resultRR.style.color = 'black';
 
@@ -390,7 +433,7 @@
 
   riskInputs.forEach(riskOption => {
     riskOption.addEventListener('change', () => {
-      riskInfo.style.display = 'none';
+      riskInfo.style.visibility = 'hidden';
       updatePositionSize();
     });
   });
@@ -409,7 +452,7 @@
 
   settingsToggle.addEventListener('click', function () {
     settingsContent.classList.toggle('show');
-    settingsToggle.innerHTML = settingsContent.classList.contains('show') ? 'Settings &#9650;' : 'Settings &#9660;';
+    settingsToggle.innerHTML = settingsContent.classList.contains('show') ? 'Settings &#9660;' : 'Settings &#9650;';
   });
 
   // Add event listener for click on the document object
