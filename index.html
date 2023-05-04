@@ -316,11 +316,11 @@
       if (currentPercentage <= autoswitchThresholdValue) {
         document.getElementById('risk1').checked = true;
         document.getElementById('risk2').checked = false;
-        riskInfo.textContent = `Switched to 0.5% since current balance is less than ${autoswitchThresholdValue}%`;
+        riskInfo.textContent = `Switched to 0.5% (balance is less than ${autoswitchThresholdValue}%)`;
       } else {
         document.getElementById('risk1').checked = false;
         document.getElementById('risk2').checked = true;
-        riskInfo.textContent = `Switched to 1.0% since current balance is more than ${autoswitchThresholdValue}%`;
+        riskInfo.textContent = `Switched to 1.0% (balance is more than ${autoswitchThresholdValue}%)`;
       }
       riskInfo.style.visibility = 'visible';
     }
